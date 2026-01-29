@@ -6,6 +6,121 @@ let filteredProducts = [];
 let currentPage = 1;
 let pageSize = 10;
 let currentSort = { key: '', order: '' };
+let nextId = 10000;
+// Thêm sản phẩm mới
+document.getElementById('addProductForm').onsubmit = function(e) {
+        e.preventDefault();
+        const form = e.target;
+        const title = form.title.value.trim();
+        const price = parseFloat(form.price.value);
+        const description = form.description.value.trim();
+        const categoryName = form.category.value.trim();
+        const images = form.images.value.split(',').map(s => s.trim()).filter(Boolean);
+        // Tìm id lớn nhất hiện có
+        let maxId = allProducts.reduce((max, p) => Math.max(max, p.id), 0);
+        const newProduct = {
+                id: maxId ? maxId + 1 : nextId++,
+                title,
+                price,
+                description,
+                category: { id: 0, name: categoryName, slug: categoryName.toLowerCase().replace(/\s+/g, '-'), image: '', creationAt: '', updatedAt: '' },
+                images: images.length ? images : ['https://placehold.co/80x60?text=No+Image'],
+                creationAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+        };
+        allProducts.unshift(newProduct);
+        // Đóng modal
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('addProductModal'));
+        modal.hide();
+        form.reset();
+        currentPage = 1;
+        applyFilterSortPage();
+        return false;
+};
+
+// Sửa sản phẩm
+window.editProduct = function(id) {
+        const product = allProducts.find(p => p.id === id);
+        if (!product) return;
+        // Tạo modal sửa nếu chưa có
+        let modalDiv = document.getElementById('editProductModal');
+        if (!modalDiv) {
+                modalDiv = document.createElement('div');
+                modalDiv.innerHTML = `
+                <div class="modal fade" id="editProductModal" tabindex="-1" aria-labelledby="editProductModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form id="editProductForm" autocomplete="off">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="editProductModalLabel">Sửa sản phẩm</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-2">
+                                        <label class="form-label">Tên sản phẩm</label>
+                                        <input type="text" class="form-control" name="title" required>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">Giá</label>
+                                        <input type="number" class="form-control" name="price" min="0" required>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">Mô tả</label>
+                                        <textarea class="form-control" name="description" rows="2"></textarea>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">Danh mục</label>
+                                        <input type="text" class="form-control" name="category" required>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">Ảnh (dán nhiều link, cách nhau dấu phẩy)</label>
+                                        <input type="text" class="form-control" name="images">
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                                    <button type="submit" class="btn btn-primary">Lưu</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>`;
+                document.body.appendChild(modalDiv);
+        }
+        // Gán dữ liệu vào form
+        setTimeout(() => {
+                const form = document.getElementById('editProductForm');
+                form.title.value = product.title;
+                form.price.value = product.price;
+                form.description.value = product.description;
+                form.category.value = product.category?.name || '';
+                form.images.value = product.images.join(', ');
+                form.onsubmit = function(e) {
+                        e.preventDefault();
+                        product.title = form.title.value.trim();
+                        product.price = parseFloat(form.price.value);
+                        product.description = form.description.value.trim();
+                        product.category.name = form.category.value.trim();
+                        product.category.slug = form.category.value.trim().toLowerCase().replace(/\s+/g, '-');
+                        product.images = form.images.value.split(',').map(s => s.trim()).filter(Boolean);
+                        product.updatedAt = new Date().toISOString();
+                        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('editProductModal'));
+                        modal.hide();
+                        applyFilterSortPage();
+                        return false;
+                };
+                // Hiện modal
+                const modal = new bootstrap.Modal(document.getElementById('editProductModal'));
+                modal.show();
+        }, 100);
+};
+
+// Xóa sản phẩm
+window.deleteProduct = function(id) {
+        if (!confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) return;
+        allProducts = allProducts.filter(p => p.id !== id);
+        applyFilterSortPage();
+};
 
 async function fetchData() {
     try {
@@ -37,8 +152,8 @@ function renderTable(products) {
             <td class="text-end">${product.price.toLocaleString()}₫</td>
             <td>${product.description}</td>
             <td>
-                <button class="btn btn-sm btn-info me-1" onclick="editProduct(${product.id})">Sửa</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteProduct(${product.id})">Xóa</button>
+                <button class="btn btn-sm btn-info me-1" onclick='editProduct(${JSON.stringify(product.id)})'>Sửa</button>
+                <button class="btn btn-sm btn-danger" onclick='deleteProduct(${JSON.stringify(product.id)})'>Xóa</button>
             </td>
         `;
         tbody.appendChild(tr);
